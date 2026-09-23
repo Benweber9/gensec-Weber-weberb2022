@@ -49,7 +49,7 @@ class NotebookRAGApp:
         """Initialize the RAG application and all required model and database components."""
         self.data_dir = Path(data_dir)
         self.persist_directory = Path(persist_directory)
-        self.model_name = model_name or os.getenv("GOOGLE_MODEL", "gemini-2.0-flash")
+        self.model_name = model_name or os.getenv("GOOGLE_MODEL", "gemini-3.6-flash")
 
         self.google_project = self._require_env("GOOGLE_CLOUD_PROJECT")
         self.google_api_key = self._require_env("GOOGLE_API_KEY")
@@ -237,7 +237,7 @@ def main() -> None:
         "--model-name",
         type=str,
         default=None,
-        help="Optional Gemini model name. Defaults to GOOGLE_MODEL or gemini-2.0-flash.",
+        help="Optional Gemini model name. Overrides GOOGLE_MODEL and defaults to gemini-3.6-flash.",
     )
     args = parser.parse_args()
 

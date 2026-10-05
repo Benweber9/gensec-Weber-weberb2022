@@ -6,13 +6,17 @@ Install dependencies with:
 Set OPENAI_API_KEY and OPENAI_MODEL in the environment, then run uv run python app.py.
 OPENAI_BASE_URL may optionally point to an OpenAI-compatible endpoint. Choose
 a model that supports tool calling. Enter 'exit' or 'quit' to end the session.
+Use '/password' for a hidden, local password check. Never enter real passwords
+in ordinary chat, which is sent to the configured LLM.
 
 The PythonREPL tool executes Python locally with the process's permissions;
 use this assistant only with trusted inputs.
 """
 
+import getpass
 import os
 import sys
+import warnings
 
 from langchain.agents import create_agent
 from langchain.tools import tool
@@ -65,6 +69,46 @@ def security_checklist(topic: str) -> str:
     )
 
 
+@tool
+def password_strength_check(password: str) -> str:
+    """Score a password locally using five simple defensive criteria.
+
+    Award one point each for at least 12 characters, an uppercase letter,
+    a lowercase letter, a number, and a non-whitespace special character.
+    This educational score does not measure resistance to guessing.
+    The function performs no network requests, logging, or persistent storage
+    and never includes the password in its output. Use the local /password
+    command for real passwords; agent calls are for synthetic examples only.
+
+    Args:
+        password: Password string to evaluate without modifying it.
+
+    Returns:
+        A score out of five and suggestions for improving the password.
+    """
+    criteria = [
+        (len(password) >= 12, "Use at least 12 characters; longer is better."),
+        (any(char.isupper() for char in password), "Add an uppercase letter."),
+        (any(char.islower() for char in password), "Add a lowercase letter."),
+        (any(char.isdigit() for char in password), "Add a number."),
+        (
+            any(not char.isalnum() and not char.isspace() for char in password),
+            "Add a special character such as !, @, or #.",
+        ),
+    ]
+    score = sum(passed for passed, _ in criteria)
+    suggestions = [suggestion for passed, suggestion in criteria if not passed]
+    if not suggestions:
+        suggestions.append("All five basic criteria are met; this is not a guarantee of strength.")
+    suggestions.append(
+        "Use a unique, randomly generated password or a long random passphrase; "
+        "avoid common words, predictable patterns, and personal information."
+    )
+    return f"Score: {score}/5 (basic criteria).\nSuggestions:\n" + "\n".join(
+        f"- {suggestion}" for suggestion in suggestions
+    )
+
+
 def build_agent():
     """Create the security agent using environment settings and security tools.
 
@@ -81,7 +125,7 @@ def build_agent():
         base_url=os.environ.get("OPENAI_BASE_URL") or None,
     )
     # Add custom tools to this list in later homework tasks.
-    tools = [PythonREPLTool(), security_checklist]
+    tools = [PythonREPLTool(), security_checklist, password_strength_check]
     return create_agent(
         model=model,
         tools=tools,
@@ -89,6 +133,9 @@ def build_agent():
             "You are a Security Assistant. Explain security concepts clearly "
             "and help users reason about defensive security tasks. "
             "Use security_checklist for short defensive topic checklists. "
+            "Use password_strength_check only for synthetic example passwords. "
+            "Never ask users to share real passwords in chat; direct them to "
+            "the local /password command instead. "
             "Use the Python_REPL tool for Python calculations when useful. "
             "Print calculation results so you can read the tool output. "
             "Explain your results and acknowledge uncertainty."
@@ -106,6 +153,7 @@ def main() -> int:
 
     messages = []
     print("Security Assistant — enter 'exit' or 'quit' to leave.")
+    print("For real passwords, use /password; ordinary chat is sent to the LLM.")
     while True:
         try:
             question = input("You: ").strip()
@@ -115,6 +163,21 @@ def main() -> int:
         if question.lower() in {"exit", "quit"}:
             break
         if not question:
+            continue
+        if question.lower() == "/password":
+            try:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("error", getpass.GetPassWarning)
+                    password = getpass.getpass("Password (hidden, local only): ")
+                # Call the function directly to bypass tool tracing and chat history.
+                try:
+                    print(password_strength_check.func(password))
+                finally:
+                    del password
+            except getpass.GetPassWarning:
+                print("Hidden input is unavailable; use /password in a terminal.")
+            except (EOFError, KeyboardInterrupt):
+                print()
             continue
 
         try:

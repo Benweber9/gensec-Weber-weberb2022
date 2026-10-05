@@ -15,12 +15,58 @@ import os
 import sys
 
 from langchain.agents import create_agent
+from langchain.tools import tool
 from langchain_experimental.tools.python.tool import PythonREPLTool
 from langchain_openai import ChatOpenAI
 
 
+@tool
+def security_checklist(topic: str) -> str:
+    """Return a short defensive security checklist for the requested topic.
+
+    Args:
+        topic: Security topic: passwords, phishing, network, or web application.
+
+    Returns:
+        An educational checklist, or supported topics if the topic is unknown.
+    """
+    checklists = {
+        "passwords": [
+            "Use a long, unique password for each account.",
+            "Store passwords in a password manager.",
+            "Enable multifactor authentication where available.",
+            "Change compromised passwords and review account activity.",
+        ],
+        "phishing": [
+            "Verify unexpected requests through a separate, trusted channel.",
+            "Check sender addresses and link destinations carefully.",
+            "Avoid opening unexpected attachments or sharing login codes.",
+            "Report suspicious messages to your security team or provider.",
+        ],
+        "network": [
+            "Keep routers, firewalls, and connected devices updated.",
+            "Replace default administrator credentials.",
+            "Use WPA2 or WPA3 for Wi-Fi and restrict unnecessary access.",
+            "Separate guest devices and review logs for unusual activity.",
+        ],
+        "web application": [
+            "Validate input and use parameterized database queries.",
+            "Enforce authentication and authorization on the server.",
+            "Use HTTPS and secure session cookies.",
+            "Update dependencies and keep secrets out of source code.",
+        ],
+    }
+    normalized_topic = " ".join(topic.lower().split())
+    checklist = checklists.get(normalized_topic)
+    if checklist is None:
+        return "Supported topics: " + ", ".join(checklists) + "."
+    return f"Defensive checklist for {normalized_topic}:\n" + "\n".join(
+        f"- {item}" for item in checklist
+    )
+
+
 def build_agent():
-    """Create the security agent using environment settings and a Python tool.
+    """Create the security agent using environment settings and security tools.
 
     Raise ValueError if the API key or model name is missing.
     """
@@ -35,13 +81,14 @@ def build_agent():
         base_url=os.environ.get("OPENAI_BASE_URL") or None,
     )
     # Add custom tools to this list in later homework tasks.
-    tools = [PythonREPLTool()]
+    tools = [PythonREPLTool(), security_checklist]
     return create_agent(
         model=model,
         tools=tools,
         system_prompt=(
             "You are a Security Assistant. Explain security concepts clearly "
             "and help users reason about defensive security tasks. "
+            "Use security_checklist for short defensive topic checklists. "
             "Use the Python_REPL tool for Python calculations when useful. "
             "Print calculation results so you can read the tool output. "
             "Explain your results and acknowledge uncertainty."

@@ -1,11 +1,11 @@
 """Run a command-line Security Assistant with LangChain and Python calculations.
 
 Install dependencies with:
-    uv add langchain langchain-openai langchain-experimental
+    uv add langchain langchain-google-genai langchain-experimental
 
-Set OPENAI_API_KEY and OPENAI_MODEL in the environment, then run uv run python app.py.
-OPENAI_BASE_URL may optionally point to an OpenAI-compatible endpoint. Choose
-a model that supports tool calling. Enter 'exit' or 'quit' to end the session.
+Set GOOGLE_API_KEY in the environment, then run uv run python app.py.
+GOOGLE_MODEL optionally selects the Gemini model (default: gemini-3.8-flash).
+Choose a model that supports tool calling. Enter 'exit' or 'quit' to end the session.
 Use '/password' for a hidden, local password check. Never enter real passwords
 in ordinary chat, which is sent to the configured LLM.
 
@@ -21,7 +21,7 @@ import warnings
 from langchain.agents import create_agent
 from langchain.tools import tool
 from langchain_experimental.tools.python.tool import PythonREPLTool
-from langchain_openai import ChatOpenAI
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 
 @tool
@@ -112,17 +112,18 @@ def password_strength_check(password: str) -> str:
 def build_agent():
     """Create the security agent using environment settings and security tools.
 
-    Raise ValueError if the API key or model name is missing.
+    Use GOOGLE_MODEL or default to gemini-3.8-flash.
+    Raise ValueError if GOOGLE_API_KEY is missing.
     """
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    model_name = os.environ.get("OPENAI_MODEL", "").strip()
-    if not api_key or not model_name:
-        raise ValueError("Set OPENAI_API_KEY and OPENAI_MODEL before running.")
+    api_key = os.environ.get("GOOGLE_API_KEY", "").strip()
+    model_name = os.environ.get("GOOGLE_MODEL", "").strip() or "gemini-3.8-flash"
+    if not api_key:
+        raise ValueError("Set GOOGLE_API_KEY before running.")
 
-    model = ChatOpenAI(
+    model = ChatGoogleGenerativeAI(
         model=model_name,
         api_key=api_key,
-        base_url=os.environ.get("OPENAI_BASE_URL") or None,
+        vertexai=False,
     )
     # Add custom tools to this list in later homework tasks.
     tools = [PythonREPLTool(), security_checklist, password_strength_check]
@@ -147,8 +148,8 @@ def main() -> int:
     """Run an interactive conversation and return a process exit status."""
     try:
         agent = build_agent()
-    except ValueError as error:
-        print(f"Configuration error: {error}", file=sys.stderr)
+    except ValueError:
+        print("Configuration error: check GOOGLE_API_KEY and GOOGLE_MODEL.", file=sys.stderr)
         return 1
 
     messages = []
@@ -187,11 +188,12 @@ def main() -> int:
         except KeyboardInterrupt:
             print()
             break
-        except Exception as error:
-            print(f"Agent error: {error}", file=sys.stderr)
+        except Exception:
+            # Provider errors can contain request details; do not expose credentials.
+            print("Agent error: check your Gemini configuration and connection.", file=sys.stderr)
             continue
         messages = result["messages"]
-        print(f"Assistant: {messages[-1].content}")
+        print(f"Assistant: {messages[-1].text}")
 
     return 0
 

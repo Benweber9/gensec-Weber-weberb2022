@@ -1,0 +1,25 @@
+Sample Cybersecurity Incident Report
+=================================
+
+Date: 2026-10-22
+Incident ID: SAMPLE-INC-2026-001
+
+Summary:
+A phishing email was reported by a staff member in the finance department. The email
+claimed to be from a trusted vendor and requested an urgent account verification.
+The user did not click any links and reported the message to the security team.
+
+Observed indicators:
+- Suspicious sender address using a lookalike domain
+- Urgent language asking for immediate action
+- Generic greeting instead of a personalized address
+- Request to verify credentials outside the normal process
+
+Recommended actions:
+- Block the sender and related domains
+- Notify the help desk for user awareness follow-up
+- Review mail logs and quarantine similar messages
+- Update phishing awareness training materials
+
+Status:
+Closed after review; no account compromise was confirmed.
